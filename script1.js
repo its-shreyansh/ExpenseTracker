@@ -48,6 +48,8 @@ window.addEventListener("DOMContentLoaded", () => {
   // Set today's date as default
   const today = new Date().toISOString().split("T")[0];
   dateInput.value = today;
+  dateInput.max = today;
+
 
   // Load existing transactions from Firebase
   loadTransactions();
