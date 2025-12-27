@@ -17,6 +17,9 @@ let filteredTransactions = [];
  */
 let categoryChart = null;
 
+let editingTransactionId = null; // stores ID of transaction being edited
+
+
 // ============================================
 // DOM REFERENCES (Cache for performance)
 // ============================================
@@ -122,18 +125,6 @@ function validateForm() {
       errors.push("❌ Date cannot be in the future");
     }
   }
-
-  if (!date) {
-    errors.push("❌ Please select a date");
-  } else {
-    const selectedDate = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to midnight
-    if (selectedDate > today) {
-      errors.push("❌ Date cannot be in the future");
-    }
-  }
-
   // Show all errors if any
   if (errors.length > 0) {
     alert("⚠️ VALIDATION ERRORS:\n\n" + errors.join("\n"));
@@ -174,18 +165,31 @@ async function addTransaction() {
       createdAt: new Date().toISOString()
     };
 
-    // Step 4: Add to Firestore
-    const docRef = await window.addDoc(
-      window.collection(window.db, "transactions"),
-      newTransaction
-    );
+    // Step 4: Add or Update transaction
+    if (editingTransactionId) {
+      // Update existing transaction
+      await window.updateDoc(
+        window.doc(window.db, "transactions", editingTransactionId),
+        newTransaction
+      );
+      alert("✅ Transaction updated successfully!");
+    } else {
+      // Add new transaction
+      await window.addDoc(
+        window.collection(window.db, "transactions"),
+        newTransaction
+      );
 
-    console.log("✅ Transaction added with ID:", docRef.id);
+      alert("✅ Transaction added successfully!");
+}
 
     // Step 5: Reset form
     transactionForm.reset();
     const today = new Date().toISOString().split("T")[0];
     dateInput.value = today;
+    editingTransactionId = null;
+    transactionForm.querySelector("button[type='submit']").textContent = "✅ Add Transaction";
+
 
     // Show success message
     alert("✅ Transaction added successfully!");
@@ -322,12 +326,21 @@ function displayTransactions() {
         ${amountSign}₹${transaction.amount.toFixed(2)}
       </td>
       <td class="px-6 py-4 text-center">
-        <button
-          onclick="deleteTransaction('${transaction.id}')"
-          class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm transition-colors"
-        >
-          🗑️ Delete
-        </button>
+        <div class="flex gap-2 justify-center">
+          <button
+            onclick="editTransaction('${transaction.id}')"
+            class="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+          >
+            ✏️ Edit
+          </button>
+          <button
+            onclick="deleteTransaction('${transaction.id}')"
+            class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+          >
+            🗑️ Delete
+          </button>
+        </div>
+
       </td>
     `;
 
@@ -364,6 +377,33 @@ async function deleteTransaction(transactionId) {
     alert("Error deleting transaction");
   }
 }
+
+/**
+ * Populate form with existing transaction for editing
+ */
+window.editTransaction = function (transactionId) {
+  // Find the transaction from array
+  const transaction = transactions.find(t => t.id === transactionId);
+  if (!transaction) return;
+
+  // Store ID globally
+  editingTransactionId = transactionId;
+
+  // Fill form fields
+  amountInput.value = transaction.amount;
+  categoryInput.value = transaction.category;
+  typeInput.value = transaction.type;
+  dateInput.value = transaction.date;
+  descriptionInput.value = transaction.description;
+
+  // Change submit button text
+  transactionForm.querySelector("button[type='submit']").textContent =
+    "🔄 Update Transaction";
+  document
+    .getElementById("transactionSection")
+    .scrollIntoView({ behavior: "smooth" });
+};
+
 
 // ============================================
 // UPDATE SUMMARY CARDS
